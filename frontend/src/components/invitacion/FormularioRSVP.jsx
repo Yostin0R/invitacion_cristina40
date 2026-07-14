@@ -8,11 +8,14 @@ export default function FormularioRSVP({
   puedeConfirmar,
   onConfirmado,
 }) {
+  const maxAcompanantes = Number(invitado?.acompanantes_permitidos ?? 0);
+  const invitacionPersonal = maxAcompanantes <= 0;
+
   const [asistira, setAsistira] = useState(
     confirmacionExistente?.asistira ?? null
   );
   const [acompanantes, setAcompanantes] = useState(
-    confirmacionExistente?.numero_acompanantes ?? 0
+    invitacionPersonal ? 0 : (confirmacionExistente?.numero_acompanantes ?? 0)
   );
   const [mensaje, setMensaje] = useState(confirmacionExistente?.mensaje ?? '');
   const [error, setError] = useState('');
@@ -27,11 +30,15 @@ export default function FormularioRSVP({
       return;
     }
 
+    const numeroAcompanantes = asistira && !invitacionPersonal
+      ? Math.min(Math.max(0, acompanantes), maxAcompanantes)
+      : 0;
+
     setEnviando(true);
     try {
       const resultado = await api.confirmar(token, {
         asistira,
-        numero_acompanantes: asistira ? acompanantes : 0,
+        numero_acompanantes: numeroAcompanantes,
         mensaje,
       });
       onConfirmado(resultado);
@@ -68,6 +75,17 @@ export default function FormularioRSVP({
       <form className="rsvp-form" onSubmit={handleSubmit}>
         <p className="rsvp-nombre">{invitado.nombre}</p>
 
+        {invitacionPersonal && (
+          <div className="rsvp-personal-note">
+            <span className="rsvp-personal-icon">✦</span>
+            <p className="rsvp-personal-title">Invitación personal</p>
+            <p>
+              Esta invitación es solo para ti. Por el aforo del evento,
+              no es posible registrar acompañantes adicionales.
+            </p>
+          </div>
+        )}
+
         <div className="form-group">
           <label>¿Podrás acompañarnos?</label>
           <div className="radio-group">
@@ -76,7 +94,10 @@ export default function FormularioRSVP({
                 type="radio"
                 name="asistira"
                 checked={asistira === true}
-                onChange={() => setAsistira(true)}
+                onChange={() => {
+                  setAsistira(true);
+                  if (invitacionPersonal) setAcompanantes(0);
+                }}
               />
               Sí, asistiré
             </label>
@@ -95,18 +116,21 @@ export default function FormularioRSVP({
           </div>
         </div>
 
-        {asistira && (
+        {asistira && !invitacionPersonal && (
           <div className="form-group">
             <label>
-              Número de acompañantes (máx. {invitado.acompanantes_permitidos})
+              Número de acompañantes (máx. {maxAcompanantes})
             </label>
             <input
               type="number"
               className="form-input"
               min={0}
-              max={invitado.acompanantes_permitidos}
+              max={maxAcompanantes}
               value={acompanantes}
-              onChange={(e) => setAcompanantes(parseInt(e.target.value, 10) || 0)}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10) || 0;
+                setAcompanantes(Math.min(Math.max(0, value), maxAcompanantes));
+              }}
             />
           </div>
         )}

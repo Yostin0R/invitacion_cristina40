@@ -820,6 +820,35 @@ a {
   text-align: center;
 }
 
+.rsvp-personal-note {
+  background: linear-gradient(180deg, rgba(197, 160, 93, 0.12), rgba(107, 34, 51, 0.06));
+  border: 1px solid var(--gold-light);
+  border-radius: 16px;
+  padding: 18px 16px;
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.rsvp-personal-icon {
+  display: inline-block;
+  color: var(--gold);
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.rsvp-personal-title {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  color: var(--burgundy);
+  margin-bottom: 6px;
+}
+
+.rsvp-personal-note p:last-child {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .form-group {
   margin-bottom: 18px;
 }

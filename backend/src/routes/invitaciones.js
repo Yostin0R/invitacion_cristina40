@@ -120,13 +120,14 @@ function validarConfirmacion(body, invitado) {
 
   const asistira = !!body.asistira;
   let acompanantes = parseInt(body.numero_acompanantes, 10) || 0;
+  const maxPermitidos = Number(invitado.acompanantes_permitidos) || 0;
 
-  if (!asistira) {
+  if (!asistira || maxPermitidos <= 0) {
     acompanantes = 0;
   } else if (acompanantes < 0) {
     errores.push('El número de acompañantes no puede ser negativo');
-  } else if (acompanantes > invitado.acompanantes_permitidos) {
-    errores.push(`Máximo ${invitado.acompanantes_permitidos} acompañante(s) permitido(s)`);
+  } else if (acompanantes > maxPermitidos) {
+    errores.push(`Máximo ${maxPermitidos} acompañante(s) permitido(s)`);
   }
 
   const fechaLimite = formatearFecha(invitado.fecha_limite_confirmacion);
