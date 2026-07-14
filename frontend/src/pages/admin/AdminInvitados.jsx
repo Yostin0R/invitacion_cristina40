@@ -149,8 +149,24 @@ export default function AdminInvitados() {
                 onChange={(e) => setNuevoInvitado({ ...nuevoInvitado, nombre: e.target.value })} required style={{ flex: 1, minWidth: '150px' }} />
               <input className="form-input" placeholder="Teléfono" value={nuevoInvitado.telefono}
                 onChange={(e) => setNuevoInvitado({ ...nuevoInvitado, telefono: e.target.value })} style={{ flex: 1, minWidth: '120px' }} />
-              <input className="form-input" type="number" min={0} max={10} placeholder="Acompañantes" value={nuevoInvitado.acompanantes_permitidos}
-                onChange={(e) => setNuevoInvitado({ ...nuevoInvitado, acompanantes_permitidos: parseInt(e.target.value, 10) || 0 })} style={{ width: '130px' }} />
+              <input
+                className="form-input"
+                type="number"
+                min={0}
+                max={10}
+                title="Acompañantes adicionales (0 = solo el invitado)"
+                placeholder="Acomp. (0=solo)"
+                value={nuevoInvitado.acompanantes_permitidos}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const n = raw === '' ? 0 : parseInt(raw, 10);
+                  setNuevoInvitado({
+                    ...nuevoInvitado,
+                    acompanantes_permitidos: Number.isFinite(n) && n >= 0 ? n : 0,
+                  });
+                }}
+                style={{ width: '150px' }}
+              />
               <button type="submit" className="btn btn-primary btn-small">Crear</button>
             </div>
             {enlaceCreado && (
@@ -180,7 +196,13 @@ export default function AdminInvitados() {
                     {inv.telefono && <div style={{ fontSize: '0.75rem', color: 'var(--ink-soft)' }}>{inv.telefono}</div>}
                   </td>
                   <td><span className={`badge badge-${inv.estado_invitado}`}>{ESTADO_LABELS[inv.estado_invitado]}</span></td>
-                  <td>{inv.estado_invitado === 'confirmado' ? inv.numero_acompanantes : `${inv.acompanantes_permitidos} permitidos`}</td>
+                  <td>
+                    {inv.estado_invitado === 'confirmado'
+                      ? `${inv.numero_acompanantes ?? 0} (máx. ${inv.acompanantes_permitidos})`
+                      : Number(inv.acompanantes_permitidos) <= 0
+                        ? 'Solo el invitado'
+                        : `${inv.acompanantes_permitidos} permitidos`}
+                  </td>
                   <td>{inv.fecha_confirmacion ? new Date(inv.fecha_confirmacion).toLocaleDateString('es-ES') : '—'}</td>
                   <td>
                     <div className="admin-actions">
@@ -214,9 +236,29 @@ export default function AdminInvitados() {
               <input className="form-input" value={editando.telefono} onChange={(e) => setEditando({ ...editando, telefono: e.target.value })} />
             </div>
             <div className="form-group">
-              <label>Acompañantes permitidos</label>
-              <input className="form-input" type="number" min={0} max={10} value={editando.acompanantes_permitidos}
-                onChange={(e) => setEditando({ ...editando, acompanantes_permitidos: parseInt(e.target.value, 10) || 0 })} />
+              <label>Acompañantes adicionales permitidos</label>
+              <input
+                className="form-input"
+                type="number"
+                min={0}
+                max={10}
+                value={editando.acompanantes_permitidos}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const n = raw === '' ? 0 : parseInt(raw, 10);
+                  const max = Number.isFinite(n) && n >= 0 ? n : 0;
+                  setEditando({
+                    ...editando,
+                    acompanantes_permitidos: max,
+                    numero_acompanantes: Math.min(editando.numero_acompanantes || 0, max),
+                  });
+                }}
+              />
+              <p style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--ink-soft)', lineHeight: 1.45 }}>
+                {Number(editando.acompanantes_permitidos) <= 0
+                  ? 'Invitación personal: solo esa persona, sin acompañantes.'
+                  : `Puede llevar hasta ${editando.acompanantes_permitidos} acompañante(s) además de sí misma/o.`}
+              </p>
             </div>
 
             <div className="form-group">
@@ -244,12 +286,31 @@ export default function AdminInvitados() {
                     </label>
                   </div>
                 </div>
-                {editando.asistira && (
+                {editando.asistira && Number(editando.acompanantes_permitidos) > 0 && (
                   <div className="form-group">
-                    <label>Número de acompañantes</label>
-                    <input className="form-input" type="number" min={0} max={editando.acompanantes_permitidos} value={editando.numero_acompanantes}
-                      onChange={(e) => setEditando({ ...editando, numero_acompanantes: parseInt(e.target.value, 10) || 0 })} />
+                    <label>Número de acompañantes confirmados</label>
+                    <input
+                      className="form-input"
+                      type="number"
+                      min={0}
+                      max={editando.acompanantes_permitidos}
+                      value={editando.numero_acompanantes}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const n = raw === '' ? 0 : parseInt(raw, 10);
+                        const value = Number.isFinite(n) && n >= 0 ? n : 0;
+                        setEditando({
+                          ...editando,
+                          numero_acompanantes: Math.min(value, editando.acompanantes_permitidos),
+                        });
+                      }}
+                    />
                   </div>
+                )}
+                {editando.asistira && Number(editando.acompanantes_permitidos) <= 0 && (
+                  <p style={{ fontSize: '0.85rem', color: 'var(--ink-soft)', marginBottom: '12px' }}>
+                    Como es invitación personal, se confirmará sin acompañantes.
+                  </p>
                 )}
               </>
             )}

@@ -8,15 +8,18 @@ export default function FormularioRSVP({
   puedeConfirmar,
   onConfirmado,
 }) {
-  const maxAcompanantes = Number(invitado?.acompanantes_permitidos ?? 0);
-  const invitacionPersonal = maxAcompanantes <= 0;
+  const maxAcompanantes = Number(invitado?.acompanantes_permitidos);
+  const invitacionPersonal = !Number.isFinite(maxAcompanantes) || maxAcompanantes <= 0;
+  const maxPermitido = invitacionPersonal ? 0 : Math.floor(maxAcompanantes);
 
   const [asistira, setAsistira] = useState(
     confirmacionExistente?.asistira ?? null
   );
-  const [acompanantes, setAcompanantes] = useState(
-    invitacionPersonal ? 0 : (confirmacionExistente?.numero_acompanantes ?? 0)
-  );
+  const [acompanantes, setAcompanantes] = useState(() => {
+    if (invitacionPersonal) return 0;
+    const prev = Number(confirmacionExistente?.numero_acompanantes) || 0;
+    return Math.min(Math.max(0, prev), maxPermitido);
+  });
   const [mensaje, setMensaje] = useState(confirmacionExistente?.mensaje ?? '');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -31,7 +34,7 @@ export default function FormularioRSVP({
     }
 
     const numeroAcompanantes = asistira && !invitacionPersonal
-      ? Math.min(Math.max(0, acompanantes), maxAcompanantes)
+      ? Math.min(Math.max(0, acompanantes), maxPermitido)
       : 0;
 
     setEnviando(true);
@@ -119,17 +122,17 @@ export default function FormularioRSVP({
         {asistira && !invitacionPersonal && (
           <div className="form-group">
             <label>
-              Número de acompañantes (máx. {maxAcompanantes})
+              Número de acompañantes (máx. {maxPermitido})
             </label>
             <input
               type="number"
               className="form-input"
               min={0}
-              max={maxAcompanantes}
+              max={maxPermitido}
               value={acompanantes}
               onChange={(e) => {
                 const value = parseInt(e.target.value, 10) || 0;
-                setAcompanantes(Math.min(Math.max(0, value), maxAcompanantes));
+                setAcompanantes(Math.min(Math.max(0, value), maxPermitido));
               }}
             />
           </div>

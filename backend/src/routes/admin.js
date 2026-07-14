@@ -111,6 +111,17 @@ router.get('/invitados', async (req, res) => {
   }
 });
 
+function parseAcompanantesPermitidos(value, fallback = 2) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) {
+    return fallback;
+  }
+  return Math.min(10, Math.floor(n));
+}
+
 router.post('/invitados', async (req, res) => {
   try {
     const eventoId = await getEventoId();
@@ -121,12 +132,13 @@ router.post('/invitados', async (req, res) => {
     }
 
     const token = uuidv4().replace(/-/g, '').slice(0, 12);
+    const maxAcompanantes = parseAcompanantesPermitidos(acompanantes_permitidos, 2);
 
     const result = await queryOne(
       `INSERT INTO invitado (id_evento, nombre, telefono, token_invitacion, acompanantes_permitidos)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id_invitado`,
-      [eventoId, nombre.trim(), telefono || '', token, acompanantes_permitidos ?? 2]
+      [eventoId, nombre.trim(), telefono || '', token, maxAcompanantes]
     );
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
@@ -151,18 +163,27 @@ router.put('/invitados/:id', async (req, res) => {
     const invitado = await queryOne('SELECT * FROM invitado WHERE id_invitado = $1', [id]);
     if (!invitado) return res.status(404).json({ error: 'Invitado no encontrado' });
 
-    if (nombre) {
-      await query(
-        `UPDATE invitado
-         SET nombre = $1, telefono = $2, acompanantes_permitidos = $3
-         WHERE id_invitado = $4`,
-        [nombre, telefono || invitado.telefono, acompanantes_permitidos ?? invitado.acompanantes_permitidos, id]
-      );
-    }
+    const maxAcompanantes = Object.prototype.hasOwnProperty.call(req.body, 'acompanantes_permitidos')
+      ? parseAcompanantesPermitidos(acompanantes_permitidos, invitado.acompanantes_permitidos)
+      : Number(invitado.acompanantes_permitidos) || 0;
+
+    await query(
+      `UPDATE invitado
+       SET nombre = $1, telefono = $2, acompanantes_permitidos = $3
+       WHERE id_invitado = $4`,
+      [
+        (nombre && String(nombre).trim()) || invitado.nombre,
+        telefono !== undefined ? (telefono || '') : invitado.telefono,
+        maxAcompanantes,
+        id,
+      ]
+    );
+
+    const confirmacion = await queryOne('SELECT * FROM confirmacion WHERE id_invitado = $1', [id]);
 
     if (asistira !== undefined) {
-      const confirmacion = await queryOne('SELECT * FROM confirmacion WHERE id_invitado = $1', [id]);
-      const acomp = asistira ? (numero_acompanantes ?? 0) : 0;
+      const acompRaw = asistira ? (Number(numero_acompanantes) || 0) : 0;
+      const acomp = Math.min(Math.max(0, acompRaw), maxAcompanantes);
 
       if (confirmacion) {
         await query(
@@ -178,9 +199,17 @@ router.put('/invitados/:id', async (req, res) => {
           [id, !!asistira, acomp, mensaje || '']
         );
       }
+    } else if (confirmacion && Number(confirmacion.numero_acompanantes) > maxAcompanantes) {
+      // Si se baja el cupo (p. ej. a 0), recortar acompañantes ya confirmados
+      await query(
+        `UPDATE confirmacion
+         SET numero_acompanantes = $1, ultima_actualizacion = NOW()
+         WHERE id_invitado = $2`,
+        [maxAcompanantes, id]
+      );
     }
 
-    res.json({ mensaje: 'Invitado actualizado' });
+    res.json({ mensaje: 'Invitado actualizado', acompanantes_permitidos: maxAcompanantes });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al actualizar invitado' });
